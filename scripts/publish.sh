@@ -24,7 +24,7 @@ parse_frontmatter() {
   local file="$1"
   local key="$2"
   local value
-  value=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | sed "s/^${key}:[[:space:]]*//" | tr -d '"')
+  value=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | sed "s/^${key}:[[:space:]]*//" | tr -d '"' || true)
   # Return empty string if value is "null" or empty
   if [ "$value" = "null" ] || [ -z "$value" ]; then
     echo ""
@@ -42,7 +42,7 @@ get_body() {
 # Get tags as array
 get_tags() {
   local file="$1"
-  sed -n '/^---$/,/^---$/p' "$file" | grep -A100 "^tags:" | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4
+  sed -n '/^---$/,/^---$/p' "$file" | grep -A100 "^tags:" | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4 || true
 }
 
 for file in posts/*.md; do
