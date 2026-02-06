@@ -28,4 +28,4 @@ This article is for testing the unified workflow.
 
 Created at: 2026-02-06
 
-Updated at: 2026-02-06 11:00 JST (workflow trigger test v6)
+Updated at: 2026-02-06 11:05 JST (workflow trigger test v7 - debug)

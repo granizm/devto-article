@@ -5,6 +5,11 @@
 
 set -e
 
+echo "=== Script started ==="
+echo "PWD: $(pwd)"
+echo "Shell: $SHELL"
+echo "Bash version: $BASH_VERSION"
+
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"
 
@@ -45,16 +50,30 @@ for file in posts/*.md; do
 
   filename=$(basename "$file" .md)
   echo "Processing: $file"
+  echo "=== File exists check ==="
+  ls -la "$file"
+  echo "=== Raw content ==="
+  head -20 "$file"
 
   # Extract metadata
+  echo "=== Extracting title ==="
   title=$(parse_frontmatter "$file" "title")
+  echo "Title: $title"
   description=$(parse_frontmatter "$file" "description")
   canonical_url=$(parse_frontmatter "$file" "canonical_url")
   cover_image=$(parse_frontmatter "$file" "cover_image")
   body=$(get_body "$file")
 
   # Get tags
-  tags=$(get_tags "$file" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  echo "=== Getting tags ==="
+  raw_tags=$(get_tags "$file")
+  echo "Raw tags: $raw_tags"
+  if [ -n "$raw_tags" ]; then
+    tags=$(echo "$raw_tags" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  else
+    tags="[]"
+  fi
+  echo "Tags JSON: $tags"
 
   # Set published status from frontmatter (default: false for safety)
   frontmatter_published=$(parse_frontmatter "$file" "published")

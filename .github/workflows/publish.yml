@@ -19,6 +19,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
+      - name: Debug environment
+        run: |
+          echo "=== Files ==="
+          ls -la posts/
+          echo "=== File content ==="
+          cat posts/unified-workflow-test.md
+          echo "=== Frontmatter test ==="
+          sed -n '/^---$/,/^---$/p' posts/unified-workflow-test.md
+          echo "=== Title grep ==="
+          grep "^title:" posts/unified-workflow-test.md || echo "No title found"
+          echo "=== jq version ==="
+          jq --version
+          echo "=== bash version ==="
+          bash --version | head -1
+
       - name: Publish to DEV.to
         env:
           DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
