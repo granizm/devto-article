@@ -3,11 +3,7 @@
 # Usage: ./scripts/publish.sh
 # Note: published status is read from frontmatter (published: true/false)
 
-set -eo pipefail
-
-# Debug mode
-echo "Starting DEV.to publish script..."
-echo "jq version: $(jq --version)"
+set -e
 
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"
@@ -36,15 +32,10 @@ get_body() {
   sed '1,/^---$/d' "$file" | sed '1,/^---$/d'
 }
 
-# Get tags as array (simple grep-based approach)
+# Get tags as array
 get_tags() {
   local file="$1"
-  # Extract tags from YAML list format: "  - tagname"
-  local result
-  result=$(sed -n '/^---$/,/^---$/p' "$file" | \
-    awk '/^tags:/{found=1;next} found && /^  - /{gsub(/^  - /,""); gsub(/"/, ""); print} found && /^[a-z]/{exit}' | \
-    head -4) || true
-  echo "$result"
+  sed -n '/^---$/,/^---$/p' "$file" | grep -A100 "^tags:" | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4
 }
 
 for file in posts/*.md; do
@@ -63,12 +54,7 @@ for file in posts/*.md; do
   body=$(get_body "$file")
 
   # Get tags
-  tags_raw=$(get_tags "$file")
-  if [ -n "$tags_raw" ]; then
-    tags=$(echo "$tags_raw" | jq -R -s -c 'split("\n") | map(select(length > 0))')
-  else
-    tags='[]'
-  fi
+  tags=$(get_tags "$file" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
   # Set published status from frontmatter (default: false for safety)
   frontmatter_published=$(parse_frontmatter "$file" "published")
