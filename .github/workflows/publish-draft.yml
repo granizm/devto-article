@@ -1,0 +1,31 @@
+name: Publish Draft to DEV.to
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'posts/**'
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish to DEV.to (Draft)
+        env:
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+        run: ./scripts/publish.sh draft
+
+      - name: Notify Discord (Draft)
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -X POST "$DISCORD_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "{\"content\": \"📝 DEV.to下書きを作成しました\\nPR: ${{ github.event.pull_request.html_url }}\"}"
+          fi
