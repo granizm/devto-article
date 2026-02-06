@@ -19,11 +19,18 @@ if [ -z "$DEVTO_API_KEY" ]; then
   exit 1
 fi
 
-# Parse frontmatter
+# Parse frontmatter (returns empty string for null values)
 parse_frontmatter() {
   local file="$1"
   local key="$2"
-  sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | sed "s/^${key}:[[:space:]]*//" | tr -d '"'
+  local value
+  value=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | sed "s/^${key}:[[:space:]]*//" | tr -d '"')
+  # Return empty string if value is "null" or empty
+  if [ "$value" = "null" ] || [ -z "$value" ]; then
+    echo ""
+  else
+    echo "$value"
+  fi
 }
 
 # Get article body (after frontmatter)

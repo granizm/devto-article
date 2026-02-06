@@ -7,9 +7,6 @@ tags:
   - ai
   - homeautomation
 published: false
-series: null
-canonical_url: null
-cover_image: null
 ---
 
 ## The Announcement
