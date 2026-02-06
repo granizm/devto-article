@@ -35,33 +35,13 @@ get_body() {
   sed '1,/^---$/d' "$file" | sed '1,/^---$/d'
 }
 
-# Get tags as array
+# Get tags as array (simple grep-based approach)
 get_tags() {
   local file="$1"
-  # Extract tags from YAML list format (- item)
-  local tags_section=""
-  local in_tags=false
-  while IFS= read -r line; do
-    if [[ "$line" =~ ^tags: ]]; then
-      in_tags=true
-      continue
-    fi
-    if $in_tags; then
-      if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+ ]]; then
-        # Extract tag value
-        tag=$(echo "$line" | sed 's/^[[:space:]]*-[[:space:]]*//' | tr -d '"')
-        if [ -n "$tags_section" ]; then
-          tags_section="$tags_section"$'\n'"$tag"
-        else
-          tags_section="$tag"
-        fi
-      elif [[ ! "$line" =~ ^[[:space:]] ]]; then
-        # End of tags section (new key or ---)
-        break
-      fi
-    fi
-  done < <(sed -n '/^---$/,/^---$/p' "$file")
-  echo "$tags_section"
+  # Extract tags from YAML list format: "  - tagname"
+  sed -n '/^---$/,/^---$/p' "$file" | \
+    awk '/^tags:/{found=1;next} found && /^  - /{gsub(/^  - /,""); gsub(/"/, ""); print} found && /^[a-z]/{exit}' | \
+    head -4
 }
 
 for file in posts/*.md; do
