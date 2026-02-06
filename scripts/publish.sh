@@ -36,10 +36,11 @@ get_body() {
 get_tags() {
   local file="$1"
   # Extract tags in both YAML list format (- item) and inline format (tags: [a, b])
-  local tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | sed -n '/^tags:/,/^[a-z]/p' | grep -E '^\s+-\s' | sed 's/^\s*-\s*//' | tr -d '"' | head -4)
+  local tags_section
+  tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | sed -n '/^tags:/,/^[a-z]/p' | grep -E '^\s+-\s' | sed 's/^\s*-\s*//' | tr -d '"' | head -4 || true)
   if [ -z "$tags_section" ]; then
     # Try inline format: tags: [a, b, c] or tags: a, b, c
-    tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^tags:" | sed 's/^tags:\s*//' | tr -d '[]"' | tr ',' '\n' | sed 's/^\s*//' | sed 's/\s*$//' | head -4)
+    tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^tags:" | sed 's/^tags:\s*//' | tr -d '[]"' | tr ',' '\n' | sed 's/^\s*//' | sed 's/\s*$//' | head -4 || true)
   fi
   echo "$tags_section"
 }
@@ -60,7 +61,12 @@ for file in posts/*.md; do
   body=$(get_body "$file")
 
   # Get tags
-  tags=$(get_tags "$file" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  tags_raw=$(get_tags "$file")
+  if [ -n "$tags_raw" ]; then
+    tags=$(echo "$tags_raw" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+  else
+    tags='[]'
+  fi
 
   # Set published status from frontmatter (default: false for safety)
   frontmatter_published=$(parse_frontmatter "$file" "published")
