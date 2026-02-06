@@ -3,11 +3,11 @@
 # Usage: ./scripts/publish.sh
 # Note: published status is read from frontmatter (published: true/false)
 
-set -e
+# Don't exit on error - we handle errors explicitly
+set +e
 
 echo "=== Script Starting ==="
 echo "PWD: $(pwd)"
-echo "jq version: $(jq --version)"
 
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"
@@ -23,12 +23,21 @@ if [ -z "$DEVTO_API_KEY" ]; then
   exit 1
 fi
 
-# Parse frontmatter (returns empty string for null values)
+echo "jq version: $(jq --version)"
+
+# Parse frontmatter (returns empty string for null/missing values)
 parse_frontmatter() {
   local file="$1"
   local key="$2"
-  local value=""
-  value=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | head -1 | sed "s/^${key}:[[:space:]]*//" | tr -d '"' || echo "")
+  local frontmatter
+  local value
+
+  # Extract frontmatter section
+  frontmatter=$(sed -n '1,/^---$/!{/^---$/,/^---$/p}' "$file" 2>/dev/null | sed '1d;$d')
+
+  # Get value for key
+  value=$(echo "$frontmatter" | grep "^${key}:" 2>/dev/null | sed "s/^${key}:[[:space:]]*//" | tr -d '"' | head -1)
+
   # Return empty string if value is "null" or empty
   if [ "$value" = "null" ] || [ -z "$value" ]; then
     echo ""
@@ -40,65 +49,56 @@ parse_frontmatter() {
 # Get article body (after frontmatter)
 get_body() {
   local file="$1"
-  sed '1,/^---$/d' "$file" | sed '1,/^---$/d'
+  awk 'BEGIN{p=0} /^---$/{p++; next} p>=2{print}' "$file" 2>/dev/null
 }
 
 # Get tags as JSON array
 get_tags_json() {
   local file="$1"
-  local tags_list
-  tags_list=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4 || echo "")
-  if [ -n "$tags_list" ]; then
-    echo "$tags_list" | jq -R -s -c 'split("\n") | map(select(length > 0))'
-  else
+  local tags=""
+
+  # Extract tags from frontmatter
+  tags=$(sed -n '/^tags:/,/^[a-z]/p' "$file" 2>/dev/null | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4)
+
+  if [ -z "$tags" ]; then
     echo "[]"
+  else
+    echo "$tags" | jq -R -s -c 'split("\n") | map(select(length > 0))' 2>/dev/null || echo "[]"
   fi
 }
 
-echo "=== Listing posts ==="
-ls -la posts/
+echo "=== Processing articles ==="
 
 for file in posts/*.md; do
+  # Skip non-files and .gitkeep
   if [ ! -f "$file" ]; then
-    echo "Skipping: $file (not a file)"
-    continue
-  fi
-
-  if [ "$file" = "posts/.gitkeep" ]; then
-    echo "Skipping: .gitkeep"
     continue
   fi
 
   filename=$(basename "$file" .md)
+
+  if [ "$filename" = ".gitkeep" ]; then
+    continue
+  fi
+
   echo ""
   echo "=== Processing: $file ==="
 
   # Extract metadata
-  echo "Extracting title..."
   title=$(parse_frontmatter "$file" "title")
   echo "Title: $title"
 
-  echo "Extracting description..."
   description=$(parse_frontmatter "$file" "description")
   echo "Description: $description"
 
-  echo "Extracting canonical_url..."
-  canonical_url=$(parse_frontmatter "$file" "canonical_url")
-
-  echo "Extracting cover_image..."
-  cover_image=$(parse_frontmatter "$file" "cover_image")
-
-  echo "Extracting body..."
   body=$(get_body "$file")
   echo "Body length: ${#body} chars"
 
   # Get tags
-  echo "Extracting tags..."
   tags=$(get_tags_json "$file")
   echo "Tags: $tags"
 
   # Set published status from frontmatter (default: false for safety)
-  echo "Extracting published status..."
   frontmatter_published=$(parse_frontmatter "$file" "published")
   if [ "$frontmatter_published" = "true" ]; then
     published="true"
@@ -108,31 +108,30 @@ for file in posts/*.md; do
   echo "Published: $published"
 
   # Check if article already exists
-  echo "Checking if article exists..."
-  article_id=$(jq -r ".\"$filename\" // empty" "$IDS_FILE" || echo "")
-  echo "Article ID: ${article_id:-none}"
+  article_id=$(jq -r ".\"$filename\" // empty" "$IDS_FILE" 2>/dev/null)
+  echo "Existing ID: ${article_id:-none}"
 
   # Build JSON payload
-  echo "Building JSON payload..."
   json_payload=$(jq -n \
     --arg title "$title" \
     --arg body "$body" \
     --argjson published "$published" \
     --argjson tags "$tags" \
     --arg description "$description" \
-    --arg canonical_url "$canonical_url" \
-    --arg cover_image "$cover_image" \
     '{
       article: {
         title: $title,
         body_markdown: $body,
         published: $published,
         tags: $tags,
-        description: (if $description != "" then $description else null end),
-        canonical_url: (if $canonical_url != "" then $canonical_url else null end),
-        main_image: (if $cover_image != "" then $cover_image else null end)
+        description: (if $description != "" then $description else null end)
       }
-    }')
+    }' 2>/dev/null)
+
+  if [ -z "$json_payload" ]; then
+    echo "ERROR: Failed to build JSON payload"
+    continue
+  fi
 
   if [ -n "$article_id" ]; then
     # Update existing article
@@ -143,31 +142,31 @@ for file in posts/*.md; do
       -d "$json_payload")
   else
     # Create new article
-    echo "Creating new article..."
+    echo "Creating new article"
     response=$(curl -s -X POST "$API_URL" \
       -H "Content-Type: application/json" \
       -H "api-key: $DEVTO_API_KEY" \
       -d "$json_payload")
 
     # Save article ID
-    new_id=$(echo "$response" | jq -r '.id // empty' || echo "")
+    new_id=$(echo "$response" | jq -r '.id // empty' 2>/dev/null)
     if [ -n "$new_id" ]; then
-      echo "Saving article ID: $new_id"
       jq --arg filename "$filename" --arg id "$new_id" \
-        '.[$filename] = ($id | tonumber)' "$IDS_FILE" > tmp.json && mv tmp.json "$IDS_FILE"
+        '.[$filename] = ($id | tonumber)' "$IDS_FILE" > tmp.json 2>/dev/null && mv tmp.json "$IDS_FILE"
+      echo "Saved article ID: $new_id"
     fi
   fi
 
   # Check for errors
-  error=$(echo "$response" | jq -r '.error // empty' || echo "")
+  error=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
   if [ -n "$error" ]; then
     echo "API Error: $error"
     echo "Response: $response"
-    exit 1
+    # Don't exit, continue with next article
+  else
+    url=$(echo "$response" | jq -r '.url // empty' 2>/dev/null)
+    echo "Article URL: $url"
   fi
-
-  url=$(echo "$response" | jq -r '.url // empty' || echo "")
-  echo "Article URL: $url"
 done
 
 echo ""
