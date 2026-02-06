@@ -27,3 +27,5 @@ This article is for testing the unified workflow.
 2. Not publicly visible
 
 Created at: 2026-02-06
+
+Updated at: 2026-02-06 10:20 JST (workflow trigger test)
