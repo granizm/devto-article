@@ -1,10 +1,10 @@
 #!/bin/bash
 # Publish articles to DEV.to using Forem API
-# Usage: ./scripts/publish.sh [draft|publish]
+# Usage: ./scripts/publish.sh
+# Note: published status is read from frontmatter (published: true/false)
 
 set -e
 
-MODE="${1:-draft}"
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"
 
@@ -56,8 +56,9 @@ for file in posts/*.md; do
   # Get tags
   tags=$(get_tags "$file" | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
-  # Set published status based on mode
-  if [ "$MODE" = "publish" ]; then
+  # Set published status from frontmatter (default: false for safety)
+  frontmatter_published=$(parse_frontmatter "$file" "published")
+  if [ "$frontmatter_published" = "true" ]; then
     published="true"
   else
     published="false"
