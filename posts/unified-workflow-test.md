@@ -7,9 +7,6 @@ tags:
   - automation
   - test
 published: false
-series: null
-canonical_url: null
-cover_image: null
 ---
 
 ## Unified Workflow Test
