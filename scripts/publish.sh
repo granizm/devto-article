@@ -3,7 +3,9 @@
 # Usage: ./scripts/publish.sh
 # Note: published status is read from frontmatter (published: true/false)
 
-set -e
+set -ex
+echo "=== Script Starting ==="
+echo "jq version: $(jq --version)"
 
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"

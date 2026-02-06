@@ -19,6 +19,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
+      - name: Debug info
+        run: |
+          echo "=== Files ==="
+          ls -la posts/
+          echo "=== Test frontmatter ==="
+          for f in posts/*.md; do
+            if [ -f "$f" ] && [ "$f" != "posts/.gitkeep" ]; then
+              echo "--- $f ---"
+              head -15 "$f"
+            fi
+          done
+
       - name: Publish to DEV.to
         env:
           DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
