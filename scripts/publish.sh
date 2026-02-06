@@ -3,9 +3,10 @@
 # Usage: ./scripts/publish.sh
 # Note: published status is read from frontmatter (published: true/false)
 
-set -euo pipefail
+set -eo pipefail
 
-# Debug: Print jq version
+# Debug mode
+echo "Starting DEV.to publish script..."
 echo "jq version: $(jq --version)"
 
 API_URL="https://dev.to/api/articles"
@@ -39,9 +40,11 @@ get_body() {
 get_tags() {
   local file="$1"
   # Extract tags from YAML list format: "  - tagname"
-  sed -n '/^---$/,/^---$/p' "$file" | \
+  local result
+  result=$(sed -n '/^---$/,/^---$/p' "$file" | \
     awk '/^tags:/{found=1;next} found && /^  - /{gsub(/^  - /,""); gsub(/"/, ""); print} found && /^[a-z]/{exit}' | \
-    head -4
+    head -4) || true
+  echo "$result"
 }
 
 for file in posts/*.md; do
