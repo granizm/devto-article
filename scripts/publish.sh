@@ -3,7 +3,10 @@
 # Usage: ./scripts/publish.sh
 # Note: published status is read from frontmatter (published: true/false)
 
-set -e
+set -euo pipefail
+
+# Debug: Print jq version
+echo "jq version: $(jq --version)"
 
 API_URL="https://dev.to/api/articles"
 IDS_FILE="devto_article_ids.json"
@@ -35,13 +38,29 @@ get_body() {
 # Get tags as array
 get_tags() {
   local file="$1"
-  # Extract tags in both YAML list format (- item) and inline format (tags: [a, b])
-  local tags_section
-  tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | sed -n '/^tags:/,/^[a-z]/p' | grep -E '^\s+-\s' | sed 's/^\s*-\s*//' | tr -d '"' | head -4 || true)
-  if [ -z "$tags_section" ]; then
-    # Try inline format: tags: [a, b, c] or tags: a, b, c
-    tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^tags:" | sed 's/^tags:\s*//' | tr -d '[]"' | tr ',' '\n' | sed 's/^\s*//' | sed 's/\s*$//' | head -4 || true)
-  fi
+  # Extract tags from YAML list format (- item)
+  local tags_section=""
+  local in_tags=false
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^tags: ]]; then
+      in_tags=true
+      continue
+    fi
+    if $in_tags; then
+      if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+ ]]; then
+        # Extract tag value
+        tag=$(echo "$line" | sed 's/^[[:space:]]*-[[:space:]]*//' | tr -d '"')
+        if [ -n "$tags_section" ]; then
+          tags_section="$tags_section"$'\n'"$tag"
+        else
+          tags_section="$tag"
+        fi
+      elif [[ ! "$line" =~ ^[[:space:]] ]]; then
+        # End of tags section (new key or ---)
+        break
+      fi
+    fi
+  done < <(sed -n '/^---$/,/^---$/p' "$file")
   echo "$tags_section"
 }
 
