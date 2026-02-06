@@ -35,7 +35,13 @@ get_body() {
 # Get tags as array
 get_tags() {
   local file="$1"
-  sed -n '/^---$/,/^---$/p' "$file" | grep -A100 "^tags:" | grep "^  - " | sed 's/^  - //' | tr -d '"' | head -4
+  # Extract tags in both YAML list format (- item) and inline format (tags: [a, b])
+  local tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | sed -n '/^tags:/,/^[a-z]/p' | grep -E '^\s+-\s' | sed 's/^\s*-\s*//' | tr -d '"' | head -4)
+  if [ -z "$tags_section" ]; then
+    # Try inline format: tags: [a, b, c] or tags: a, b, c
+    tags_section=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^tags:" | sed 's/^tags:\s*//' | tr -d '[]"' | tr ',' '\n' | sed 's/^\s*//' | sed 's/\s*$//' | head -4)
+  fi
+  echo "$tags_section"
 }
 
 for file in posts/*.md; do
