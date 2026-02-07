@@ -1,134 +1,207 @@
 ---
-title: "How I Deployed OpenClaw AI Agent on AWS for $2/month"
+title: "How I Deployed OpenClaw AI Agent on AWS with Amazon Bedrock"
 published: false
-description: "A beginner-friendly guide to running OpenClaw (Clawdbot AI) on AWS without expensive Mac hardware"
-tags: aws, ai, cloudformation, tutorial
+description: "A practical guide to running OpenClaw on AWS using Amazon Bedrock - no API keys required"
+tags: aws, ai, bedrock, tutorial
 ---
 
-## The Problem
+## The Problem I Wanted to Solve
 
 I wanted to use OpenClaw (formerly Clawdbot AI) for my AI agent experiments, but I didn't want to:
 
 - Buy an expensive Mac mini just for this
-- Keep my personal machine running 24/7
-- Deal with security concerns of running AI on my main computer
+- Manage multiple API keys for LLM providers
+- Deal with security concerns of running AI on my personal machine
 
-So I figured out how to deploy it on AWS for around $2/month. Here's how you can do it too!
+So I found the official AWS sample that deploys OpenClaw with **Amazon Bedrock**. Here's what I learned!
 
-## Why Cloud Deployment?
+> **Important Note:** This article is based on the official AWS sample repository: [aws-samples/sample-OpenClaw-on-AWS-with-Bedrock](https://github.com/aws-samples/sample-OpenClaw-on-AWS-with-Bedrock)
 
-| Local Setup | Cloud Setup |
-|-------------|-------------|
-| Need dedicated hardware | No hardware needed |
-| Only accessible from home | Access from anywhere |
-| Power costs add up | Pay only for what you use |
-| Security concerns | Isolated environment |
+## Why Amazon Bedrock?
 
-## What You'll Need
+The killer feature is **no API key management**. Instead of juggling multiple API keys from different LLM providers, you get:
 
-- An AWS account (free to create)
-- An LLM provider API key (OpenRouter has a free tier!)
-- About 10 minutes of your time
+- **IAM-based authentication** - Your AWS credentials handle everything
+- **Multiple model options** - Nova, Claude, DeepSeek, Llama (8 models total!)
+- **Enterprise-grade security** - VPC Endpoints for private communication
 
-## Step 1: Deploy the CloudFormation Stack (5 mins)
+## Architecture Overview
 
-The easiest way is using CloudFormation, which sets up everything automatically.
+```
+User → WhatsApp/Telegram → EC2 (OpenClaw) → Amazon Bedrock
+                              ↓
+                        VPC Endpoints
+                              ↓
+                          CloudTrail
+```
+
+CloudFormation provisions these resources automatically:
+
+| Service | Purpose |
+|---------|---------|
+| EC2 (t4g.medium) | Runs OpenClaw (Graviton ARM) |
+| Amazon Bedrock | AI model API |
+| IAM Role | Bedrock authentication |
+| VPC Endpoints | Private network access |
+| CloudTrail | API audit logging |
+| SSM Session Manager | Secure access (no SSH needed) |
+
+## Prerequisites
+
+Before you start, you'll need:
+
+1. **AWS account** with appropriate permissions
+2. **Bedrock models enabled** - Go to AWS Console → Bedrock → Model access
+3. **EC2 Key Pair** (optional if using SSM Session Manager)
+
+## Step 1: One-Click Deploy (~8 minutes)
+
+The easiest way is clicking "Launch Stack" in the official repo. It sets up everything automatically.
 
 ```bash
+# Or via CLI if you prefer:
 aws cloudformation create-stack \
-  --stack-name openclaw-stack \
-  --template-body file://template.yaml \
-  --capabilities CAPABILITY_IAM
+  --stack-name openclaw-bedrock \
+  --template-url https://[S3-URL]/template.yaml \
+  --capabilities CAPABILITY_IAM \
+  --parameters \
+    ParameterKey=KeyName,ParameterValue=your-keypair
 ```
 
-Or through the AWS Console:
+Wait about **8 minutes** for the stack to complete.
 
-1. Go to CloudFormation
-2. Click "Create Stack"
-3. Upload the template
-4. Give it a name and click "Create"
+## Step 2: Get Your Access Credentials
 
-Wait about 5 minutes for the resources to provision.
+Check the CloudFormation Outputs tab for:
+- **Access URL**
+- **Authentication token**
 
-## Step 2: Configure the Agent
-
-SSH into your new EC2 instance and run the setup:
+## Step 3: Connect via SSM Session Manager
 
 ```bash
-ssh -i your-key.pem ec2-user@your-instance-ip
+# Port forwarding to access the UI
+aws ssm start-session \
+  --target i-xxxxxxxxx \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["18789"],"localPortNumber":["18789"]}'
 ```
 
-You'll be prompted for:
+Open `http://localhost:18789` in your browser and you're in!
 
-- **Operation mode**: Choose "Local"
-- **LLM Provider**: I recommend OpenRouter (has free tier)
-- **Model**: Pick one like `gpt-oss-120b:free`
+## Available AI Models
 
-## Step 3: Access Your Agent
+You can choose from 8 models in Bedrock:
 
-Once configured, you'll get a URL. Open it in your browser and start chatting with your AI agent!
+- **Nova 2 Lite** (recommended - cheapest)
+- **Nova Pro**
+- **Claude Sonnet**
+- **DeepSeek**
+- **Llama**
+- And more...
 
-## Cost Breakdown
+## Real Cost Breakdown
 
-Here's what it actually costs:
+> **Correction:** I initially thought this would cost ~$2/month. I was wrong! Here's the actual breakdown.
 
-| Usage | Monthly Cost |
-|-------|-------------|
-| 8 hours/day | ~$2 |
-| 24/7 | ~$6 |
+### Infrastructure Costs (Monthly)
 
-Plus LLM costs (free with OpenRouter's free tier).
+| Component | Cost |
+|-----------|------|
+| EC2 (t4g.medium) | $24.19 |
+| EBS (gp3, 30GB) | $2.40 |
+| VPC Endpoints | $21.60 |
+| Data Transfer | $5-10 |
+| **Subtotal** | **$53-58** |
 
-## Pro Tips
+### Bedrock Usage (Per Million Tokens)
 
-### Save Money with Spot Instances
+| Model | Input | Output |
+|-------|-------|--------|
+| Nova 2 Lite | $0.30 | $2.50 |
+| Nova Pro | $0.80 | $3.20 |
+| Claude Sonnet | $3.00 | $15.00 |
 
-You can cut costs by up to 90% using Spot Instances. Just be aware they can be interrupted.
+**Total monthly cost: ~$58-66** for light usage
+
+## Instance Type Options
+
+### Linux (Recommended)
+
+| Type | RAM | Monthly Cost |
+|------|-----|-------------|
+| t4g.small | 2GB | $12 |
+| t4g.medium (default) | 4GB | $24 |
+| t4g.large | 8GB | $48 |
+
+### macOS (For iOS/macOS Development)
+
+| Type | Chip | RAM | Monthly Cost |
+|------|------|-----|-------------|
+| mac2.metal | M1 | 16GB | $468 |
+| mac2-m2.metal | M2 | 24GB | $632 |
+
+## Supported Messaging Platforms
+
+OpenClaw works with:
+
+- **WhatsApp** (recommended)
+- **Telegram**
+- **Discord**
+- **Slack**
+- **Microsoft Teams**
+
+## Cost-Saving Tips
 
 ### Stop When Not Using
 
-Unlike a Mac mini that's always on, you can stop your EC2 instance when you're not using it. No charges while it's stopped!
+EC2 charges stop when the instance is stopped. However, **VPC Endpoints continue charging** even when your instance is down!
 
-### Use Scheduled Actions
+### Use a Smaller Instance
 
-Set up CloudWatch Events to automatically start/stop your instance:
+t4g.small ($12/month) works for light usage with 2GB RAM.
 
-```yaml
-# Start at 8 AM, stop at 10 PM
-StartAction: "0 8 * * *"
-StopAction: "0 22 * * *"
-```
+### Choose Nova 2 Lite
+
+It's the cheapest Bedrock model at $0.30/million input tokens.
+
+### Consider Removing VPC Endpoints
+
+If you're okay with public Bedrock access, you can skip VPC Endpoints and save ~$22/month. Check security implications first though.
 
 ## Common Issues
 
-**Can't SSH into instance?**
-- Check your Security Group allows port 22
-- Make sure you're using the right key pair
-
-**URL not working?**
-- Ensure ports 80/443 are open in Security Group
-- Verify the instance is running
-
 **Stack creation failed?**
 - Check IAM permissions
+- Make sure Bedrock models are enabled
 - Don't forget `CAPABILITY_IAM` flag
+
+**SSM Session Manager not working?**
+- Verify the instance has SSM agent installed
+- Check IAM role has SSM permissions
+
+**Bedrock model not available?**
+- Enable models in AWS Console → Bedrock → Model access
+- Check your region supports Bedrock (us-east-1, us-west-2, etc.)
 
 ## Wrapping Up
 
-Running OpenClaw on AWS is:
-- 💰 Cheap (~$2/month)
-- 🚀 Quick to set up (~10 mins)
-- 🌍 Accessible from anywhere
-- 🔒 Isolated from your personal machine
+Running OpenClaw on AWS with Bedrock gives you:
 
-Give it a try and let me know how it goes in the comments!
+- No more API key juggling
+- Enterprise security out of the box
+- Access from anywhere
+- 8 AI models to choose from
+
+The trade-off is cost: expect **~$53-58/month minimum** for infrastructure, plus Bedrock usage.
+
+It takes about **8 minutes to deploy** with one click. Give it a try!
 
 ## Resources
 
-- [OpenClaw GitHub](https://github.com/openclaw)
+- [OpenClaw on AWS with Bedrock (Official AWS Sample)](https://github.com/aws-samples/sample-OpenClaw-on-AWS-with-Bedrock)
+- [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [AWS CloudFormation Docs](https://docs.aws.amazon.com/cloudformation/)
-- [OpenRouter](https://openrouter.ai/) for free LLM access
 
 ---
 
-*Have questions? Drop them in the comments!*
+*Have questions or corrections? Drop them in the comments!*
