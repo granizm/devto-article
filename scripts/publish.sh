@@ -107,8 +107,14 @@ for file in posts/*.md; do
   fi
   echo "Published: $published"
 
-  # Check if article already exists
-  article_id=$(jq -r ".\"$filename\" // empty" "$IDS_FILE" 2>/dev/null)
+  # Check if article already exists (handle both old format {id} and new format {id, url})
+  article_data=$(jq -r ".\"$filename\"" "$IDS_FILE" 2>/dev/null)
+  if [ "$article_data" != "null" ] && [ -n "$article_data" ]; then
+    # Check if it's an object with .id or just a number
+    article_id=$(echo "$article_data" | jq -r 'if type == "object" then .id else . end' 2>/dev/null)
+  else
+    article_id=""
+  fi
   echo "Existing ID: ${article_id:-none}"
 
   # Build JSON payload
@@ -148,12 +154,14 @@ for file in posts/*.md; do
       -H "api-key: $DEVTO_API_KEY" \
       -d "$json_payload")
 
-    # Save article ID
+    # Save article ID and URL
     new_id=$(echo "$response" | jq -r '.id // empty' 2>/dev/null)
+    new_url=$(echo "$response" | jq -r '.url // empty' 2>/dev/null)
     if [ -n "$new_id" ]; then
-      jq --arg filename "$filename" --arg id "$new_id" \
-        '.[$filename] = ($id | tonumber)' "$IDS_FILE" > tmp.json 2>/dev/null && mv tmp.json "$IDS_FILE"
+      jq --arg filename "$filename" --arg id "$new_id" --arg url "$new_url" \
+        '.[$filename] = {id: ($id | tonumber), url: $url}' "$IDS_FILE" > tmp.json 2>/dev/null && mv tmp.json "$IDS_FILE"
       echo "Saved article ID: $new_id"
+      echo "Saved article URL: $new_url"
     fi
   fi
 
@@ -166,6 +174,11 @@ for file in posts/*.md; do
   else
     url=$(echo "$response" | jq -r '.url // empty' 2>/dev/null)
     echo "Article URL: $url"
+    # Update URL in IDs file if article already exists
+    if [ -n "$article_id" ] && [ -n "$url" ]; then
+      jq --arg filename "$filename" --arg url "$url" \
+        '.[$filename].url = $url' "$IDS_FILE" > tmp.json 2>/dev/null && mv tmp.json "$IDS_FILE"
+    fi
   fi
 done
 
