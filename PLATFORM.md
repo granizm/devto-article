@@ -5,6 +5,34 @@
 - **Platform**: DEV.to (dev.to)
 - **Language**: en (English)
 - **Primary Audience**: Global developers and tech enthusiasts
+- **Community Style**: オープンソース志向、初心者歓迎、カジュアル
+
+## Target Audience Characteristics
+
+DEV.to is a **global developer community** with a welcoming, inclusive atmosphere.
+
+### User Demographics
+
+- Open source enthusiasts and contributors
+- Beginners are actively welcomed and supported
+- Active comment sections with engaged discussions
+- Casual, friendly community culture
+
+### Content Guidelines
+
+1. **Titles**: Approachable titles work well - "How I...", "A Beginner's Guide to...", "What I Learned..."
+2. **Tone**: Conversational and friendly, not overly formal
+3. **Engagement**: Ask questions at the end, encourage discussion
+4. **Inclusivity**: Write for all skill levels, explain concepts clearly
+
+### Comparison with Hashnode
+
+| Aspect | DEV.to | Hashnode |
+|--------|--------|----------|
+| Audience | Community-focused, beginners welcome | Personal branding, professional |
+| Style | Casual, conversational | Professional, SEO-focused |
+| Content | How-tos, experiences, discussions | Tutorials, technical deep-dives |
+| Discovery | Tag-based, community feed | SEO, custom domains |
 
 ## Writing Guidelines
 
