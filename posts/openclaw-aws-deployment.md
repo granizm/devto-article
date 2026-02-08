@@ -1,47 +1,100 @@
 ---
-title: "Getting Started with OpenClaw (Clawdbot AI) | 3 Easy Steps in 10 Minutes"
+title: "How I Run OpenClaw on AWS for $2/month (No Mac Required!)"
 published: false
-description: "Deploy OpenClaw on AWS without buying expensive hardware"
-tags: aws, cloudformation, ai, tutorial
+description: "Skip the expensive hardware - here's how to run your AI agent in the cloud for just $2 a month"
+tags: aws, ai, tutorial, beginners
 ---
 
-## What This Article Solves
+## The Problem
 
-A guide for those who want to run OpenClaw (formerly Clawdbot AI) in the cloud without purchasing an expensive Mac mini.
+I wanted to run OpenClaw (formerly Clawdbot AI) 24/7, but I didn't want to:
 
-## Benefits of Cloud Deployment
+- Buy a Mac mini ($700+)
+- Keep my computer running all day
+- Worry about security on my home network
 
-- No Mac mini required
-- Access from anywhere
-- 24/7 availability
-- Security isolation
+So I put it on AWS instead. **Total cost: about $2/month.**
 
-## Setup Steps (3 Steps)
+Here's how I did it.
 
-### Step 1: Deploy to AWS (~5 minutes)
+## Why Cloud?
 
-Create a CloudFormation stack using the template. Resource creation completes in about 1-3 minutes.
+| | Local (Mac mini) | Cloud (AWS) |
+|---|---|---|
+| Upfront cost | $700+ | $0 |
+| Monthly cost | Electricity | ~$2 |
+| Access | Home only | Anywhere |
+| Uptime | When PC is on | 24/7 |
 
-### Step 2: Configuration
+If you just want to try OpenClaw without committing to expensive hardware, AWS is the way to go.
 
-1. Connect to the EC2 instance
-2. Run the command `openclaw_setup`
-3. Select LLM model (using OpenRouter as an example)
-4. Choose `gpt-oss-120b:free`
+## Setup in 3 Steps (10 minutes)
 
-### Step 3: Start Using
+### Step 1: Deploy to AWS (~5 min)
 
-Access the obtained URL and start chatting with OpenClaw.
+Use the CloudFormation template to spin up an EC2 instance.
 
-## Cost Estimate
+1. Go to AWS Console
+2. Navigate to CloudFormation
+3. Create a new stack with the template
+4. Wait ~3 minutes
 
-| Usage Pattern | Cost |
-|--------------|------|
-| 1 day (8 hours) | ~$0.07 |
-| 1 month | ~$2 |
+That's it. Your server is ready.
 
-> **Note:** This article is for testing purposes. Production use requires additional security measures. LLM usage fees are charged separately.
+### Step 2: Configure OpenClaw
 
-## Reference
+SSH into your new instance:
 
-- [Original Article (note)](https://note.com/granizm/n/n83515660ed41)
+```bash
+ssh -i your-key.pem ec2-user@<your-instance-ip>
+```
+
+Run the setup:
+
+```bash
+openclaw_setup
+```
+
+When prompted, choose:
+- **Operation Mode**: Local
+- **LLM Provider**: OpenRouter
+- **Model**: gpt-oss-120b:free (it's free!)
+
+### Step 3: Start Using It
+
+Open the URL that appears after setup. You're now chatting with your own AI agent!
+
+## Cost Breakdown
+
+| Usage | Cost |
+|-------|------|
+| 8 hours/day | ~$0.07/day |
+| 24/7 | ~$2/month |
+
+**LLM costs**: Zero if you use the free model. If you want better models, pay-as-you-go.
+
+## Heads Up
+
+> ⚠️ This setup is great for testing and personal use. For production, you'll want to add proper security measures.
+
+Things to consider:
+- Lock down your security groups
+- Manage your SSH keys properly
+- Delete the stack when you're done to save money
+
+## Wrapping Up
+
+Running OpenClaw on AWS is:
+- **Cheap**: ~$2/month
+- **Easy**: 10-minute setup
+- **Flexible**: Access from anywhere
+
+No need to buy a Mac mini just to try AI agents. Give this a shot!
+
+---
+
+*Questions? Drop them in the comments!*
+
+## Resources
+
+- [Original article (Japanese)](https://note.com/granizm/n/n83515660ed41)
